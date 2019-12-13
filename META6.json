@@ -1,6 +1,6 @@
 {
   "name": "Regex::FuzzyToken",
-  "description": "A token enabling fuzzy string matching in regexes and grammars",
+  "description": "A token enabling fuzzy matching token in regexes and grammars",
   "version": "0.5",
   "perl": "6.*",
   "auth": "Matthew ‘Matéu’ Stephen Stuckwisch",
@@ -12,5 +12,5 @@
   },
   "resources": [],
   "license": "Artistic-2.0",
-  "source-url": "Write me!"
+  "source-url": "https://github.com/alabamenhu/RegexFuzzyToken.git"
 }
