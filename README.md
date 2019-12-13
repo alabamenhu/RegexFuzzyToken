@@ -1,4 +1,4 @@
-# Fuzzy Tokens
+![Regex::FuzzyToken for Raku](resources/logo.png)
 
 A Raku module enabling the use of fuzzy tokens in regexen and grammars:
 
