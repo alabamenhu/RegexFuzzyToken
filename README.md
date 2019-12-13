@@ -44,3 +44,11 @@ It could be interesting to allow for a more complex capture, for example, that
 matches only as many characters as it needs using `.match($capture, :exhaustive)` on a
 substring from the current `.pos`.   That would require some tuning of the Q gram algorithm
 and in many cases could take exponentially more time, but would be more accurate / usable.
+
+# Licenses
+
+All code is and documentation is licensed under the Artistic License 2.0, included with
+the module.  The image used on Github is based on
+[this butterfly](https://www.piqsels.com/en/public-domain-photo-frbsj)
+which is licensed under CC-0 and modified in accordance with that license and released
+under [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/)

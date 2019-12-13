@@ -97,7 +97,7 @@ sub EXPORT {
         ?? $match but Fuzzy[$*clear,$*fuzz]
         !! $match
     }
-  ); 
+  );
 
   # Export the fuzzy token in its wrapped form
   %( '&fuzzy' => &fuzzy )
