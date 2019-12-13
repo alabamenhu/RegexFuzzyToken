@@ -1,0 +1,169 @@
+<h1><a id="user-content-santa-had-too-much-eggnog" class="anchor" aria-hidden="true" href="#santa-had-too-much-eggnog"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Santa had too much eggnog</h1>
+<p>We’re just over a week from Christmas and Santa is sending his elves the final present lists. Unfortunately, Santa had a bit too much eggnog and so the list that he sent to his elves was … not the greatest.  Take a look at some of it:</p>
+<pre style="font-size: 14px; font-family: monospace"><code>Johnny
+ - 4 bsaeball gluvs
+ - 2 batts
+ - 2 ballz
+Mary
+ - 3 fancee dols
+ - 1 dressss
+ - 1 bbaskebtall
+</code></pre>
+<p>Santa somehow managed to keep a nice format that we could mostly process with regexen, so the elves started hammering away at a nice grammar:</p>
+<pre style="font-size: 14px; font-family: monospace"><code>grammar Santa'sList {
+  rule TOP        {       &lt;kid's-list&gt;+    }
+  rule kid's-list {     &lt;name&gt;     &lt;gift&gt;+ }
+  rule gift       { '-' &lt;quantity&gt; &lt;item&gt;  }
+  token name      { &lt;-[\n]&gt;   }
+  token quantity  { &lt;.digit&gt;+ }
+  token item      { &lt;.alpha&gt;+ % \h+ }
+}
+</code></pre>
+<p>While the elves figured that they <em>could</em> try to figure out what he meant in an action object, they decided it would be more interesting to create a token that they could reuse not just in the grammar, but in any random regex — these elves are crafty!</p>
+<p>They wanted to make a new token that they'd call <code>&lt;fuzzy&gt;</code> that could somehow capture Santa's drunken scribblings (can we call his typed list a scribbling?).  But regex syntax doesn't actually allow for doing any kind of fuzzy matching.  But here Raku's engine comes to the rescue.  So first they created a code block inside of the token.  Code blocks are normally defined with just <code>{ 🦋 }</code> but because they needed to define the success of a match, they opted instead of the <code>&lt;?{ 🦋 }&gt;</code> block, which will not only run the code, but will also fail if the block returns a false-y value.</p>
+<pre style="font-size: 14px; font-family: monospace"><code>  token fuzzy {
+    (&lt;.alpha&gt;+ % \h+)
+    &lt;?{
+      # 🦋 code here
+    }&gt;
+  }
+</code></pre>
+<p>Before they started writing their code, they did two other things.  First they named the capture to be a bit easier to maintain down the road.  And secondly, they realized they needed to actually get the list of possible toys into the token somehow.  So they added a signature to the token to pass it in.</p>
+<pre style="font-size: 14px; font-family: monospace"><code>  token fuzzy(**@toys) {
+    $&lt;santa's-text&gt;=(&lt;.alpha&gt;+ % \h+)
+    &lt;?{
+      # 🦋 code here
+    }&gt;
+  }
+</code></pre>
+<p>Now they could begin the code itself.  They would take Santa’s text, and compare it to each of the possible toys, and decide which one was the closest match:</p>
+<pre style="font-size: 14px; font-family: monospace"><code>  token fuzzy(**@toys) {
+    $&lt;santa's-text&gt;=(&lt;.alpha&gt;+ % \h+)
+    &lt;?{
+      my $best = @toys
+                   .map({ $^toy, qgram($toy,$&lt;santa's-text&gt;.Str)})
+                   .sort( *.tail )
+                   .tail;
+      say "Santa meant to write {$best[0]}";
+    }&gt;
+  }
+</code></pre>
+<p>The Q-gram function they used creates N-grams for each word, and compares them to see how many they have in common.  With testing they found that the best value for N (the length of each substring) was about half the average length.  The way that Raku works, writing the Q-gram function was super easy:</p>
+<pre style="font-size: 14px; font-family: monospace"><code>  #| Generate space-padded N-grams of length n for string t.
+  sub ngrams = -&gt; \t, \n {
+    my \s = (' ' x n - 1)  ~ t ~  (' ' x n - 1);
+    do for ^(t.chars + n) { s.substr: $_, n }
+  }
+
+  #| Calculate Q-gram score using bag operations
+  sub qgram (\a, \b) {
+    my \q  = (a.chars + b.chars) div 4;
+    my \aₙ = ngrams(a,q).BagHash;
+    my \bₙ = ngrams(b,q).BagHash;
+
+    (aₙ ∩ bₙ) / (aₙ ∪ bₙ)      # Coefficient de communauté de Joccard
+  }
+</code></pre>
+<p>Raku let the elves calculate N-grams in just two clean lines of code, and then use those to calculate the Joccard-index between the two strings in just four more easy to read lines of code.</p>
+<p>Putting this back into their grammar, they ended up with the following:</p>
+<pre style="font-size: 14px; font-family: monospace"><code>grammar Santa'sList {
+  rule TOP        {       &lt;kid's-list&gt;+    }
+  rule kid's-list {     &lt;name&gt;     &lt;gift&gt;+ }
+  rule gift       { '-' &lt;quantity&gt; &lt;item&gt;  }
+  token name      { &lt;-[\n]&gt;   }
+  token quantity  { &lt;.digit&gt;+ }
+  token item      { &lt;fuzzy(@gifts)&gt; }
+  token fuzzy     { … }
+  sub ngrams      { … }
+  sub qgrams      { … }
+}
+</code></pre>
+<p>That's a pretty handy format, but an important problem remains.  How do they get access to the best matched text?  If they were to match and request, say, <code>$&lt;kid's-list&gt;[0]&lt;gift&gt;[0]&lt;item&gt;</code> they would only get Santa's original illegible mess.  They could do an action but that requires doing a parse with actions, which means the fuzzy token is tied to the vagaries of grammar parsing.  Works fine here, but… less reusable.</p>
+<p>But elves are good at packing and wrapping.  They decide to make a package that wraps the fuzzy token so that both Santa's original and the corrected version are easily accessible in a DWIM manner.  This ‘package’ can't be declared with <code>package</code> or <code>module</code>, though, because the wrapping process requires using the special sub <code>EXPORT</code>.  Their basic process looks like the following:</p>
+<pre style="font-size: 14px; font-family: monospace"><code>sub EXPORT {
+  # Make the fuzzy token in the elve's factory
+  my token fuzzy (*@words) { … } 
+
+  # Wrap it in wrapping paper (apply a role) so it's prettier (easier to use)
+  &amp;fuzzy.wrap( … )
+
+  # Ship out (export) the wrapped version
+  %( '&amp;fuzzy' =&gt; &amp;fuzzy )
+}
+</code></pre>
+<p>Any other special tools the elves need can be included in the <code>EXPORT</code> block, for example, the Q- and N-gram functions.  So how will they actually do the wrapping?  First, they design the paper, that is, a <code>role</code> that will override the <code>.Str</code> to give the clean/corrected value, but also provide access to a <code>.fuzz</code> function to allow access to older values:</p>
+<pre style="font-size: 14px; font-family: monospace"><code>  role Fuzzy[$clear,$fuzz] {
+    method Str  { $clear }
+    method fuzz { $fuzz  }
+  }
+</code></pre>
+<p>Now, the wrapped function could look something like the following:</p>
+<pre style="font-size: 14px; font-family: monospace"><code>  &amp;fuzzy.wrap(
+    sub (|) {
+      my $match = callsame;
+
+      # Failed match evals to false, and is just passed along
+      # Successful match gets Fuzzy role mixed in.
+      $match
+        ?? $match but Fuzzy[$match.??, $match.??]
+        !! $match
+    }
+  );
+</code></pre>
+<p>There's a small problem.  The results of the calculations they ran inside of the token aren't available.  One solution they thought of involved adding new parameters to to the <code>fuzzy</code> token with the trait <code>is raw</code> so that the values could be passed back, but that felt like something the old C++ elves would do.  No, Santa's Raku elves had a better idea: dynamic variables.  They made two of them, and refactored the original fuzzy method to assign to them:</p>
+<pre style="font-size: 14px; font-family: monospace"><code>  my token fuzzy(**@toys) {
+    $&lt;santa's-text&gt;=(&lt;.alpha&gt;+ % \h+)
+    &lt;?{
+      my $best = @toys
+                  .map({ $^toy, qgram($toy,$&lt;santa's-text&gt;.Str)})
+                  .sort( *.tail )
+                  .tail;
+      $*clear = $best[0];
+      $*fuzz  = ~$&lt;santa's-text&gt;;
+    }&gt;
+  }
+
+  &amp;fuzzy.wrap(
+    sub (|) {
+      my $*fuzz;
+      my $*clear;
+
+      my $match = callsame;   # sets $match to result of the original
+
+      $match
+        ?? $match but Fuzzy[$*clear, $*fuzz]
+        !! $match
+    }
+  );
+</code></pre>
+<p>They did a test with some values and all went well, until an item wasn't found:</p>
+<pre style="font-size: 14px; font-family: monospace"><code>"I like the Norht Pole" ~~ /I like the $&lt;dir&gt;=&lt;fuzzy: &lt;North South&gt; Pole&gt;/;
+say $&lt;dir&gt;.clear;   # --&gt; "North"
+say $&lt;dir&gt;.fuzz;    # --&gt; "Norht"
+
+"I like the East Pole" ~~ /I like the $&lt;dir&gt;=&lt;fuzzy: &lt;North South&gt; Pole&gt;/;
+say $&lt;dir&gt;.clear;   # --&gt; "North"
+say $&lt;dir&gt;.fuzz;    # --&gt; "East"
+</code></pre>
+<p>What happened?  The elves realized that their token was matching no matter what. This is because the <code>&lt;?{ 🦋 }</code> block will only fail if it returns a falsey value.  The last statement, being an assignment of a string, will virtually always be truthy.  To fix this, they added a simple conditional to the end of the block to fail if the Q-gram score wasn't sufficiently high.</p>
+<pre style="font-size: 14px; font-family: monospace"><code>  my token fuzzy(**@toys) {
+    $&lt;santa's-text&gt;=(&lt;.alpha&gt;+ % \h+)
+    &lt;?{
+      my $best = @toys
+                   .map({ $^toy, qgram($toy,$&lt;santa's-text&gt;.Str)})
+                   .sort( *.tail )
+                   .tail;
+
+      $*clear = $best[0];
+      $*fuzz  = ~$&lt;santa's-text&gt;;
+
+      # Arbitrary but effective score cut off.
+      $best[1] &gt; 0.33
+    }&gt;
+  }
+</code></pre>
+<p>With that, they were done, and able to process Santa's horrible typing.</p>
+<p>Of course, there were a lot of improvements that the elves could still make to make their fuzzy token more useful.  After they had made use of it (and taken the eggnog away from Santa so they wouldn't need it), they polished it up so that it could bring joy to everyone.</p>
+<hr>
+<p>With that, I can also announce the release of Regex::FuzzyToken.  To use it, just do like the elves and in a grammar or any other code, say <code>use Regex::FuzzyToken</code> and the token <code>fuzzy</code> will be imported into your current scope.  It has a few extra features, so take a look at its readme for information on some of its options.</p>
+<p>While not everyone will use or have need of a <code>FuzzyToken</code>, I hope that this shows off some interesting possibilities when creating tokens that might be better defined programmatically, as well as other cool Raku features like Bag operators, dynamic variables, and parameterized roles.</p>
