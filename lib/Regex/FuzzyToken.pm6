@@ -100,6 +100,5 @@ sub EXPORT {
   );
 
   # Export the fuzzy token in its wrapped form
-  %( '&fuzzy' => &fuzzy )
-
+  Map.new( '&fuzzy' => &fuzzy )
 }
