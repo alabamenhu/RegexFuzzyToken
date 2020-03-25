@@ -1,7 +1,7 @@
 {
   "name": "Regex::FuzzyToken",
   "description": "A token enabling fuzzy matching token in regexes and grammars",
-  "version": "0.5",
+  "version": "0.5.1",
   "perl": "6.*",
   "auth": "Matthew ‘Matéu’ Stephen Stuckwisch",
   "depends": [],
